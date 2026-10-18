@@ -1,8 +1,7 @@
-# Video Engineering with FFmpeg: A Beginner-to-Professional Onboarding Guide
+# Video Engineering with FFmpeg: An Onboarding Guide
 
 **Edition:** October 2026 — technically reviewed  
-**Audience:** Software engineers who are starting work in video processing, encoding, OTT/TVaaS, and streaming.  
-**Practice environment:** Ubuntu on WSL2, FFmpeg, FFprobe, and FFplay. Most labs use modest CPU and disk resources.  
+**Practice environment:** FFmpeg, FFprobe, and FFplay. Most labs use modest CPU and disk resources.  
 **Main codec:** H.264/AVC and the x264 encoder. HEVC/H.265 and AV1 are introduced and compared.  
 **Learning method:** Explain the problem first. Then learn the tool. Finally, test it with real commands.
 
@@ -21,7 +20,7 @@ Read the chapters in order. Most video ideas depend on earlier ideas. For exampl
 
 A good engineer does not need to remember every encoder parameter. A good engineer knows **what problem a parameter solves, what it costs, and how to test its effect**.
 
-Some commands use `-y`. This means FFmpeg can overwrite an existing output file. Run the labs in a separate working directory.
+Some commands use `-y`. This means FFmpeg can overwrite an existing output file.
 
 ### Contents
 
