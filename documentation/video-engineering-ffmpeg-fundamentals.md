@@ -493,7 +493,7 @@ These x264 settings influence how rate control distributes quantization across t
 
 **Key idea:** Rate control decides how to spend a limited resource: **bits**. Quality is measured after encoding. QP and nominal bitrate are not perceptual quality scores.
 
-## 12. Important x264 tools, in plain English
+## 12. Key x264 encoding options
 
 A long x264 log contains many short names. Learn the idea behind each one before changing the default.
 
@@ -1905,7 +1905,7 @@ Generate videos with controlled motion, spatial detail, noise, and scene changes
 
 ---
 
-# Appendix D. Practical English glossary
+# Appendix D. Technical glossary
 
 This glossary keeps the names used by FFmpeg, encoder logs, and technical documentation. Read it as a reference, not as a list to memorize.
 
@@ -2153,7 +2153,7 @@ A small result with clear evidence is more useful than a large claim that fails 
 
 # Technical sources and further reading
 
-This guide is an original teaching explanation. The sources below provide primary documentation and technical detail. They are cited as institutional or project sources in a simple APA 7-style reference format. For living technical documentation without a stable publication date, **n.d.** means *no date*. Visit the official websites when you need the current behavior of a command, codec, or streaming protocol.
+This guide is an original teaching explanation. The sources below provide primary documentation and technical detail. References follow APA 7 conventions where applicable. For living technical documentation without a stable publication date, **n.d.** means *no date*. Visit the official websites when you need the current behavior of a command, codec, or streaming protocol.
 
 1. FFmpeg Project. (n.d.). *FFmpeg documentation*. https://ffmpeg.org/ffmpeg.html
 2. FFmpeg Project. (n.d.). *FFmpeg codecs documentation*. https://ffmpeg.org/ffmpeg-codecs.html
@@ -2183,7 +2183,7 @@ The general ideas in this guide are stable, but FFmpeg builds, encoder defaults,
 
 ## AI assistance and document attribution
 
-This document was prepared with the assistance of **ChatGPT (OpenAI, GPT-6)**, based on the learning goals, instructions, and context provided by the author. It was also technically reviewed and translated with AI assistance.
+This document was prepared with the assistance of **ChatGPT (OpenAI, GPT-6)**, based on the learning goals, instructions, and context provided by the author. AI assistance was also used during the technical review.
 
 - **Tool:** ChatGPT
 - **Model:** GPT-6
