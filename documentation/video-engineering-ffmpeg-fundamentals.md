@@ -11,16 +11,19 @@
 
 ## How to use this guide
 
-Read the chapters in order. Most video ideas depend on earlier ideas. For example, to understand a `skip` macroblock, you first need to understand a frame, a block, prediction, and residual data.
+Read the chapters in order. A new technical concept must be explained before it is used to explain another concept.
 
-1. **First pass — Chapters 1–9:** Learn what a video signal is. Complete Labs 1–5.
-2. **Second pass — Chapters 10–17:** Learn how H.264 works. Complete Labs 6–11.
-3. **Third pass — Chapters 18–25:** Learn measurement, streaming, and operations. Complete Labs 12–18.
-4. **Review:** Read the real x264 log, answer the questions, and use the troubleshooting and glossary sections.
+1. **Chapters 1–5:** Learn what a picture, frame, video stream, file, and codec are.
+2. **Chapters 6–15:** Learn how compression works, from prediction and motion to quantization, bitrate control, and H.264.
+3. **Chapters 16–20:** Learn the FFmpeg tools. After Chapter 20, complete **Labs 1–13 and Lab 16**.
+4. **Chapters 21–25:** Learn video quality and delivery. Then complete **Labs 14–15 and 17–18**.
+5. **Appendices:** Read the real x264 log after Chapters 1–20; use the troubleshooting guide and glossary to review.
 
-A good engineer does not need to remember every encoder parameter. A good engineer knows **what problem a parameter solves, what it costs, and how to test its effect**.
+Labs are grouped in one part so they are easy to find. The plan above identifies the theory needed for each one.
 
-Some commands use `-y`. This means FFmpeg can overwrite an existing output file.
+**Learning rule:** Before changing an encoder parameter, identify which part of the encoding process it controls.
+
+Some commands include \`-y\`, meaning FFmpeg may overwrite an existing output file. Run labs in a separate working directory.
 
 ### Contents
 
@@ -37,57 +40,77 @@ Some commands use `-y`. This means FFmpeg can overwrite an existing output file.
 
 ## 1. The video system: from a camera to a screen
 
-A video system receives a sequence of images. It may also receive audio, subtitles, and other data. Its job is to deliver that content at a useful quality, size, speed, and cost.
+Start with the basic idea: a video is a series of still pictures shown over time, often accompanied by sound. Follow a picture from its source to a screen.
 
-```text
-Camera / graphics renderer / synthetic video source
-        |
-        v
-Original frames + timing + color information
-        |
-        v
-Preprocessing (resize, frame rate, colors, filters)
-        |
-        v
-ENCODER (H.264, HEVC, AV1, ...)
-        |  predict -> calculate differences -> quantize -> encode symbols
-        v
-Compressed BITSTREAM
-        |
-        v
-MUXER (MP4, MKV, MPEG-TS, fragmented MP4, ...)
-        |
-        v
-File / origin server / CDN / network / live delivery
-        |
-        v
-DEMUXER -> DECODER -> reconstructed frames -> screen
-```
+### 1.1 Pictures, pixels, and frames
 
-The main words are easy to confuse:
+A digital picture contains many small positions called **pixels**. Each position represents part of the picture's brightness or color. Chapter 2 explains how those values are stored.
 
-- **Frame:** one video image at a given moment.
-- **Codec:** rules for representing compressed video and rebuilding its images. H.264 is a standard. `libx264` is an encoder that implements it.
-- **Bitstream:** the encoded data that follows the codec rules.
-- **Container:** a file format that holds video, audio, timing information, and metadata. Common examples are MP4 and Matroska (MKV).
-- **Player:** software that reads the container, decodes streams, keeps them in sync, and displays or plays them. `ffplay` is a basic test player.
+A **frame** is one whole picture in the sequence. **Frame rate** is the number of pictures shown each second: 30 **fps** means 30 *frames per second*. Chapter 3 explains timing in more detail.
 
-**Simple comparison:** Think of a book. The story is the content. A compression method is a way to store its text using fewer bytes. The book file format is the container. The reading application shows it to you. Converting a PDF into an EPUB does not mean rewriting the story. In the same way, moving a video stream from MP4 to MKV does not always need video re-encoding.
+A picture can come from a camera, computer graphics, or a **synthetic source** (software that creates pictures). We call the incoming pictures the **source**.
 
-### 1.1 Six questions a video engineer should ask
+### 1.2 Why video needs compression
 
-1. What is the input, and how good is it?
-2. Which codec, format, and features does the target device need?
-3. What limits do we have for bitrate, CPU, energy, storage, and latency?
-4. What quality loss is acceptable, and what defects are not acceptable?
-5. How will we measure results fairly?
-6. How will we detect, reproduce, and fix failures in production?
+Storing all picture data takes a lot of space. **Compression** represents it using fewer **bits**. A bit is a binary digit (0 or 1); eight bits make one **byte**.
 
-### 1.2 Encode, decode, transcode, and remux
+An **encoder** compresses video. A **decoder** rebuilds pictures from the compressed data. A **codec** is the set of rules that lets these two processes work together. **H.264** is a video codec standard. **x264**, exposed as \`libx264\` in FFmpeg, is one encoder that implements those rules.
 
-**Encode** means converting image data into a compressed bitstream. **Decode** means rebuilding images from that bitstream. **Transcode** usually means decoding a compressed input and encoding it again, perhaps with a different codec, resolution, or bitrate. **Remux** means changing the container without changing compatible compressed streams. In FFmpeg, `-c copy` is used for stream copy.
+The data written according to a codec is called a **bitstream**. The encoder creates the bitstream; the decoder interprets it.
 
-**Key idea:** An `.mp4` file does not tell you everything about the video. Inspect the streams, codecs, pixel format, color information, and timestamps.
+### 1.3 Streams, containers, muxers, and demuxers
+
+A program may contain picture data, sound, and subtitles. Each separately encoded component is a **stream**, such as one video stream or one audio stream.
+
+A **container** is a file format that can hold these streams and the timing information needed to play them together. **MP4** and **Matroska (MKV)** are containers; they are not codecs.
+
+A **muxer** (*multiplexer*) combines streams and timing information into a container. A **demuxer** (*demultiplexer*) reads the container and separates the streams again.
+
+For example, an MP4 can hold H.264 video and AAC audio. **AAC** is an audio compression format; its internal details come later.
+
+Now we can draw the first processing pipeline:
+
+\`\`\`text
+Pictures (frames) --> video encoder --> compressed video stream --+
+                                                                   |
+Sound --> audio encoder --> compressed audio stream ---------------+--> MUXER --> MP4
+                                                                                 |
+                                                                                 v
+                                                                              DEMUXER
+                                                                              /     \
+                                                                    video decoder  audio decoder
+                                                                         |             |
+                                                                      pictures        sound
+                                                                         \             /
+                                                                            playback
+\`\`\`
+
+**Remember:** H.264 defines how video is compressed. MP4 holds compressed streams. A muxer writes a container; a demuxer reads it. Neither task is the same as encoding or decoding.
+
+### 1.4 The three FFmpeg tools
+
+**FFmpeg** processes media. It can read files, extract streams, decode pictures, apply **filters** (changes such as resizing), encode output, and write containers.
+
+**FFprobe** inspects media and reports details about files and streams. **FFplay** is a basic media player for testing playback.
+
+**Transcoding** normally means decoding, optionally changing the pictures, and encoding again. **Remuxing** means changing the container without re-encoding the picture data. FFmpeg's \`-c copy\` option requests **stream copy** if the stream is compatible with its new container.
+
+### 1.5 Networks and delay
+
+A packaged video may remain on disk or travel through a network. A **server** can deliver the file to a player. Later, Chapter 24 introduces a **CDN (Content Delivery Network)**: a network of servers used to distribute media near viewers.
+
+**Latency** means delay. For live video, it often means the time between an event and the moment a viewer sees it. The full system, not only the encoder, causes this delay.
+
+### 1.6 Six engineering questions
+
+1. What is the source, and how was it created?
+2. Which codecs and containers can the intended player handle?
+3. How much storage, bandwidth (network capacity), processing time, and delay can the system afford?
+4. How much visible picture change is acceptable?
+5. How will we measure the result using the same source and conditions?
+6. When something fails, which processing stage produced the problem?
+
+**Checkpoint:** Explain *frame*, *encoder*, *decoder*, *codec*, *stream*, *container*, *muxer*, and *demuxer*. Draw the pipeline from memory before moving to Chapter 2.
 
 ## 2. Pixels, resolution, and color
 
@@ -104,7 +127,7 @@ Common video sizes are:
 | 1080p | 1920 × 1080 | 2,073,600 |
 | 2160p / UHD | 3840 × 2160 | 8,294,400 |
 
-The `p` means **progressive scanning**, not a fixed width. Doubling both image dimensions creates four times as many pixels. This often increases processing cost. It does **not** mean a codec always needs four times the bitrate for the same visible quality.
+The `p` means **progressive scanning**: a full picture includes all its image rows for one moment in time. It does not indicate a fixed width. Doubling both image dimensions creates four times as many pixels. This often increases processing cost. It does **not** mean a codec always needs four times the bitrate for the same visible quality.
 
 **DAR (Display Aspect Ratio)** describes the shape shown on screen. For example, 16:9. **SAR (Sample Aspect Ratio)** describes the shape of a stored pixel sample. Most modern web video uses SAR 1:1, but not every video does.
 
@@ -128,7 +151,14 @@ Y Y Y Y                       . . . .
 
 For 8-bit **planar YUV420p**, storage is about **1.5 bytes per pixel**. For RGB24, it is 3 bytes per pixel. At 1920 × 1080, one YUV420p frame uses `1920 × 1080 × 1.5 = 3,110,400` bytes. This is the size **before temporal video compression**. For common even dimensions, the calculation is exact.
 
-Image appearance also depends on **color primaries**, **transfer function**, **matrix coefficients**, and **signal range**. Wrong interpretation can change brightness, black levels, or colors even when a codec works correctly.
+Image appearance also depends on four pieces of information:
+
+- **Color primaries:** which basic red, green, and blue colors the system uses.
+- **Transfer function:** how stored values relate to displayed light.
+- **Matrix coefficients:** how values are converted between RGB and luma/chroma.
+- **Signal range:** which numerical values carry the useful dark-to-bright information.
+
+A mistake in these values can change brightness or colors even when the codec works correctly.
 
 ### 2.3 Bit depth: 8, 10, and 12 bits
 
@@ -140,7 +170,7 @@ An 8-bit sample can represent 256 values. A 10-bit sample can represent 1,024 va
 
 A typical 8-bit limited-range video uses nominal luma values 16–235 and chroma values 16–240. Full-range video usually uses 0–255. These are signal definitions. They are not artistic brightness settings.
 
-In HD SDR, **BT.709** is common. In wide-color-gamut and UHD systems, **BT.2020** may be used. HDR can use transfer functions such as **PQ** or **HLG**. Adding an HDR label to SDR pixels does not turn them into true HDR content.
+In HD SDR, **BT.709** is common. In wide-color-gamut and UHD systems, **BT.2020** may be used. **HDR (High Dynamic Range)** can describe a wider range of brightness than conventional **SDR (Standard Dynamic Range)**. HDR systems can use transfer functions such as **PQ** or **HLG**, which specify ways to map stored values to displayed light. Adding an HDR label to SDR pixels does not turn them into true HDR content.
 
 **Key idea:** Before measuring codec quality, ensure the reference and test video use compatible resolution, timing, pixel format, and color handling.
 
@@ -156,24 +186,20 @@ Video is a sequence of pictures **plus the time at which each picture should be 
 
 **CFR (Constant Frame Rate)** means regular presentation intervals. **VFR (Variable Frame Rate)** means the time between frames can change. Screen recordings and phone videos may use VFR. Converting VFR to CFR may duplicate or drop frames. Do it only when the destination requires it, and measure the result.
 
-### 3.3 PTS and DTS
+### 3.3 Timestamps and presentation time
 
-- **PTS (Presentation Timestamp):** when a frame is shown.
-- **DTS (Decoding Timestamp):** when a compressed picture must be decoded.
-- **Time base:** the unit used to store timestamp numbers.
+Frames must appear at the right moments. A **timestamp** is a number that marks a position in time.
 
-B-frames can depend on a frame that will be shown later. That reference may need to be decoded first. So decoding order and display order can differ:
+- **PTS (Presentation Timestamp):** when a picture is meant to appear on screen.
+- **Time base:** the unit used for timestamp numbers. For example, a timestamp of 90,000 using a time base of 1/90,000 represents one second.
 
-```text
-Display order:   I0  B1  B2  P3
-Decode order:    I0  P3  B1  B2   (teaching example)
-```
+At a constant 30 fps, pictures normally appear about 1/30 of a second apart. With variable frame rate, the gaps may differ.
 
-Real patterns depend on reference choices and codec rules. Do not assume every B-frame follows exactly this example.
+Sometimes a decoder processes pictures in a different order from display order. We will introduce **DTS**, the timestamp for decoding, only after learning about I-, P-, and B-pictures in Chapter 9.
 
 ### 3.4 Visible motion is not the same as coding difficulty
 
-Movement may be caused by a running person, camera panning, zoom, changing light, or a scene cut. A fast moving background can still be easy to predict when its structure stays similar. Changing random noise can be hard to predict even if a viewer sees no moving object.
+Movement may be caused by a running person, camera panning (turning the view sideways), zooming (changing how close the scene appears), changing light, or a **scene cut** (an abrupt change between camera shots). A fast moving background can still be easy to predict when its structure stays similar. Changing random noise can be hard to predict even if a viewer sees no moving object.
 
 ### 3.5 Progressive and interlaced video
 
